@@ -2,7 +2,7 @@
 
 // ====== Tipos básicos que reflejan el backend (api.py) ======
 
-export type ScenarioType = "Equilibrio" | "Normal" | "Sobrecarga";
+export type ScenarioType = "Equilibrio" | "Normal" | "Sobrecarga" | "Libre";
 
 export type ClimaType =
   | "ninguno"
@@ -13,6 +13,14 @@ export type ClimaType =
   | "niebla"
   | "microburst";
 
+export type TimePeriod = "morning" | "day" | "evening" | "night";
+
+export interface TimeInfo {
+  hour: number;
+  minute: number;
+  period: TimePeriod;
+}
+
 // Configuración que viaja entre frontend y backend
 export interface SimulationConfig {
   scenario: ScenarioType;
@@ -20,6 +28,16 @@ export interface SimulationConfig {
   max_holding_time: number;
   clima_manual: ClimaType;
   usar_probabilidades: boolean;
+
+  // Parámetros granulares (opcionales)
+  arrival_rate?: number;
+  max_ground?: number;
+  turn_time?: number;
+  takeoff_time?: number;
+  max_release_per_step?: number;
+
+  // Sistema de tiempo
+  minutes_per_step?: number;
 }
 
 // Info mínima de una aerolínea asociada a un avión
@@ -43,6 +61,7 @@ export type PlaneState =
 // DTO de avión que devuelve el backend
 export interface PlaneDTO {
   id: number;
+  flight_code: string;
   x: number;
   y: number;
   state: PlaneState;
@@ -80,6 +99,7 @@ export interface Metrics {
   emergencias: number;        // aviones emergencia
   en_espera: number;          // prioridad 1
   clima: ClimaInfo;           // clima_actual + factor_clima
+  time?: TimeInfo;            // información de hora (opcional para retrocompatibilidad)
 }
 
 // Pistas simples

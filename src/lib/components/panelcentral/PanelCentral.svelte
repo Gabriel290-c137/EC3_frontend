@@ -15,6 +15,9 @@
   import AirportMap from "$lib/components/panelcentral/AirportMap.svelte";
   import Topbar from "$lib/components/layout/Topbar.svelte";
   import Metrics from "$lib/components/panelcentral/Metrics.svelte";
+  import TimeDisplay from "$lib/components/panelcentral/TimeDisplay.svelte";
+  import WeatherEffects from "$lib/components/panelcentral/WeatherEffects.svelte";
+  import FlightTable from "$lib/components/panelcentral/FlightTable.svelte";
 
   // ====================================================
   //  ESTADO BÁSICO
@@ -53,9 +56,7 @@
   function setErrorFrom(err: unknown, fallback: string) {
     const e = err as ApiError;
     error =
-      (e && (e.detail as string)) ||
-      (e && (e.message as string)) ||
-      fallback;
+      (e && (e.detail as string)) || (e && (e.message as string)) || fallback;
   }
 
   // ====================================================
@@ -197,10 +198,65 @@
     lastStepPlotted = snapshot.step;
     pushMetricsForSnapshot(snapshot);
   }
+
+  // CÁLCULO DE MÉTRICAS EXTRA (Aerolíneas + Combustible)
+  let airlineNames: string[] = [];
+  let airlineCounts: number[] = [];
+  let avgFuel = 0;
+
+  $: if (snapshot) {
+    // Agrupar por aerolínea
+    const counts: Record<string, number> = {};
+    let totalFuel = 0;
+    let planesWithFuel = 0;
+
+    snapshot.planes.forEach((p) => {
+      // Contar aerolínea
+      const name = p.airline?.name || "Unknown";
+      counts[name] = (counts[name] || 0) + 1;
+
+      // Sumar combustible
+      if (typeof p.combustible === "number") {
+        totalFuel += p.combustible;
+        planesWithFuel++;
+      }
+    });
+
+    airlineNames = Object.keys(counts);
+    airlineCounts = Object.values(counts);
+
+    avgFuel = planesWithFuel > 0 ? totalFuel / planesWithFuel : 0;
+  }
+
+  // ====================================
+  // TEMAS DINÁMICOS BASADOS EN TIEMPO
+  // ====================================
+  $: timePeriod = snapshot?.metrics.time?.period || "night";
+
+  // Colores de tema según la hora
+  const themes: Record<
+    string,
+    { bg: string; secondary: string; text: string }
+  > = {
+    morning: { bg: "#FFE5CC", secondary: "#FF9D5C", text: "#2C1810" }, // Amanecer naranja
+    day: { bg: "#E8F4F8", secondary: "#4A90E2", text: "#0F2942" }, // Día azul claro
+    evening: { bg: "#FFA07A", secondary: "#FF6347", text: "#3D1A0F" }, // Atardecer naranja-rojo
+    night: { bg: "#020817", secondary: "#26C6DA", text: "#E4F4FF" }, // Noche oscuro
+  };
+
+  $: currentTheme = themes[timePeriod] || themes.night;
+  $: bgColor = currentTheme.bg;
+  $: textColor = currentTheme.text;
 </script>
 
-<!-- WRAPPER GENERAL (fondo global oscuro) -->
-<div class="min-h-screen bg-[#020817] overflow-x-hidden">
+<!-- WRAPPER GENERAL (fondo global con tema dinámico) -->
+<div
+  class="min-h-screen overflow-x-hidden transition-colors duration-1000"
+  style="background-color: {bgColor};"
+>
+  <!-- Weather effects overlay -->
+  <WeatherEffects clima={climaTipo} />
+
   <!-- TOPBAR FIJO -->
   <Topbar />
 
@@ -222,6 +278,7 @@
             <option value="Equilibrio">Equilibrio</option>
             <option value="Normal">Normal</option>
             <option value="Sobrecarga">Sobrecarga</option>
+            <option value="Libre">Modo Libre</option>
           </select>
         </div>
 
@@ -268,6 +325,94 @@
             <span>{config.usar_probabilidades ? "ON" : "OFF"}</span>
           </label>
         </div>
+
+        {#if config.scenario === "Libre"}
+          <!-- SEPARADOR -->
+          <hr class="border-[#1F3A55] my-2" />
+          <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide mb-2">
+            Parámetros Avanzados
+          </p>
+
+          <!-- SLIDERS -->
+          <div class="space-y-3">
+            <!-- Arrival Rate -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>Tasa Llegadas</span>
+                <span class="text-[#26C6DA]"
+                  >{config.arrival_rate ?? "Auto"}</span
+                >
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="2.0"
+                step="0.1"
+                class="w-full accent-[#26C6DA]"
+                value={config.arrival_rate ?? 0.5}
+                on:input={(e) =>
+                  (config.arrival_rate = parseFloat(e.currentTarget.value))}
+              />
+            </div>
+
+            <!-- Max Ground -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>Capacidad Pistas</span>
+                <span class="text-[#26C6DA]">{config.max_ground ?? "Auto"}</span
+                >
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                class="w-full accent-[#26C6DA]"
+                value={config.max_ground ?? 4}
+                on:input={(e) =>
+                  (config.max_ground = parseInt(e.currentTarget.value))}
+              />
+            </div>
+
+            <!-- Turn Time -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>Tiempo Giro</span>
+                <span class="text-[#26C6DA]">{config.turn_time ?? "Auto"}</span>
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="10"
+                step="1"
+                class="w-full accent-[#26C6DA]"
+                value={config.turn_time ?? 3}
+                on:input={(e) =>
+                  (config.turn_time = parseInt(e.currentTarget.value))}
+              />
+            </div>
+
+            <!-- Takeoff Time -->
+            <div>
+              <div class="flex justify-between text-xs mb-1">
+                <span>Tiempo Despegue</span>
+                <span class="text-[#26C6DA]"
+                  >{config.takeoff_time ?? "Auto"}</span
+                >
+              </div>
+              <input
+                type="range"
+                min="1"
+                max="15"
+                step="1"
+                class="w-full accent-[#26C6DA]"
+                value={config.takeoff_time ?? 5}
+                on:input={(e) =>
+                  (config.takeoff_time = parseInt(e.currentTarget.value))}
+              />
+            </div>
+          </div>
+        {/if}
 
         <button
           class="mt-2 w-full px-3 py-1 rounded bg-[#26C6DA] hover:bg-[#2FE4F7] text-white text-sm font-medium disabled:opacity-60 transition-colors"
@@ -356,60 +501,96 @@
           <div class="mt-4 space-y-3">
             <!-- Fila 1: métricas principales -->
             <div class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Escenario</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Escenario
+                </p>
                 <p class="text-lg font-semibold text-[#E4F4FF]">
                   {snapshot.config.scenario}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Aviones</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Aviones
+                </p>
                 <p class="text-lg font-semibold text-[#26C6DA]">
                   {totalPlanes}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Llegadas</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Llegadas
+                </p>
                 <p class="text-lg font-semibold text-[#E4F4FF]">
                   {snapshot.metrics.total_arrivals}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Salidas</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Salidas
+                </p>
                 <p class="text-lg font-semibold text-[#E4F4FF]">
                   {snapshot.metrics.total_departures}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Emergencias</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Emergencias
+                </p>
                 <p class="text-lg font-semibold text-[#DC2626]">
                   {snapshot.metrics.emergencias}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Desviados</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-3 py-2 shadow-md hover:shadow-[#26C6DA]/20 transition"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Desviados
+                </p>
                 <p class="text-lg font-semibold text-[#F59E0B]">
                   {snapshot.metrics.total_diverted}
                 </p>
               </div>
             </div>
 
-            <!-- Fila 2: estados (desvíos + clima) -->
+            <!-- Fila 2: estados (desvíos + clima + hora) -->
             <div class="flex flex-wrap gap-3">
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-4 py-2 shadow-md flex items-center justify-between min-w-[120px]">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Desvíos</p>
-                <p class="text-sm font-semibold" class:text-[#26C6DA]={desvioOn} class:text-[#9FB9D8]={!desvioOn}>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-4 py-2 shadow-md flex items-center justify-between min-w-[120px]"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Desvíos
+                </p>
+                <p
+                  class="text-sm font-semibold"
+                  class:text-[#26C6DA]={desvioOn}
+                  class:text-[#9FB9D8]={!desvioOn}
+                >
                   {desvioOn ? "ON" : "OFF"}
                 </p>
               </div>
 
-              <div class="bg-[#020817] border border-[#1F3A55] rounded-xl px-4 py-2 shadow-md flex items-center justify-between flex-1 min-w-[180px]">
-                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">Clima</p>
+              <div
+                class="bg-[#020817] border border-[#1F3A55] rounded-xl px-4 py-2 shadow-md flex items-center justify-between flex-1 min-w-[180px]"
+              >
+                <p class="text-[10px] text-[#9FB9D8] uppercase tracking-wide">
+                  Clima
+                </p>
                 <div class="flex items-center gap-2">
                   <span class="text-lg">{climaEmoji}</span>
                   <span class="text-sm font-semibold text-[#E4F4FF]">
@@ -417,9 +598,11 @@
                   </span>
                 </div>
               </div>
+
+              <!-- Time Display -->
+              <TimeDisplay time={snapshot.metrics.time} />
             </div>
           </div>
-
 
           <!-- MÉTRICAS – componente Metrics.svelte -->
           <div class="mt-3 w-full">
@@ -431,7 +614,15 @@
               enEspera={dataEnEspera}
               emergencias={dataEmergencias}
               desviados={dataDesviados}
+              {airlineNames}
+              {airlineCounts}
+              {avgFuel}
             />
+          </div>
+
+          <!-- TABLA DE VUELOS – componente FlightTable.svelte -->
+          <div class="mt-3 w-full">
+            <FlightTable planes={snapshot.planes} />
           </div>
         {/if}
       </div>
