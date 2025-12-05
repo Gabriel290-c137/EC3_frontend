@@ -1,8 +1,4 @@
-// src/lib/types/api.ts
-
-// ====== Tipos básicos que reflejan el backend (api.py) ======
-
-export type ScenarioType = "Equilibrio" | "Normal" | "Sobrecarga" | "Libre";
+// src/lib/types/api.ts - TIPOS ACTUALIZADOS
 
 export type ClimaType =
   | "ninguno"
@@ -13,96 +9,115 @@ export type ClimaType =
   | "niebla"
   | "microburst";
 
-export type TimePeriod = "morning" | "day" | "evening" | "night";
+export type ScenarioType = "Equilibrio" | "Normal" | "Sobrecarga" | "Libre";
 
-export interface TimeInfo {
-  hour: number;
-  minute: number;
-  period: TimePeriod;
-}
+export type ApiError = {
+  message?: string;
+  detail?: string;
+  status?: number; // ← ahora sí puedes usar status
+};
 
-// Configuración que viaja entre frontend y backend
 export interface SimulationConfig {
   scenario: ScenarioType;
   allow_diversion: boolean;
   max_holding_time: number;
   clima_manual: ClimaType;
   usar_probabilidades: boolean;
-
-  // Parámetros granulares (opcionales)
   arrival_rate?: number;
   max_ground?: number;
   turn_time?: number;
   takeoff_time?: number;
   max_release_per_step?: number;
-
-  // Sistema de tiempo
   minutes_per_step?: number;
 }
 
-// Info mínima de una aerolínea asociada a un avión
-export interface PlaneAirlineInfo {
+export interface AirlineDTO {
   name: string;
   code: string;
   color: string;
 }
 
-// Estados posibles del avión (coinciden con tu lógica en Airplane.step)
-export type PlaneState =
-  | "arriving"
-  | "holding"
-  | "waiting"
-  | "queued_departure"
-  | "departing"
-  | "diverted"
-  | "gone"
-  | "unknown";
-
-// DTO de avión que devuelve el backend
 export interface PlaneDTO {
   id: number;
   flight_code: string;
   x: number;
   y: number;
-  state: PlaneState;
+  state: string;
   prioridad: number;
   combustible: number;
   emergencia: boolean;
   goaround_blink: number;
   desviado: boolean;
   distancia: number;
-  airline: PlaneAirlineInfo;
+  holding_time: number;
+  airline: AirlineDTO;
 }
 
-// DTO de aerolínea global (no solo el avion)
-export interface AirlineDTO {
-  name: string;
-  code: string;
-  color: string;
+// 🆕 NUEVOS TIPOS PARA COSTOS Y PERFORMANCE
+
+export interface AirlineCosts {
+  fuel: number;
+  delays: number;
+  diversions: number;
+  emergencies: number;
+  total: number;
+}
+
+export interface AirlinePerformance {
+  avg_holding_time: number;
+  diversion_rate: number;
+  cost_per_flight: number;
+  completed_flights: number;
+  efficiency_score: number;
+}
+
+export interface AirlineExtendedDTO extends AirlineDTO {
   vuelos: number;
   desvios: number;
-  costo: number;             // por ahora placeholder
-  retraso_promedio: number;  // placeholder
+  costos: AirlineCosts;
+  performance: AirlinePerformance;
 }
 
-// Info de clima dentro de las métricas
+// 🆕 MÉTRICAS AVANZADAS
+
+export interface AdvancedMetrics {
+  throughput: number;
+  runway_utilization: number;
+  avg_holding_time: number;
+  fuel_efficiency: number;
+  emergency_rate: number;
+}
+
+export interface TowerStatistics {
+  reordenamientos: number;
+  emergencias_atendidas: number;
+  desviaciones: number;
+  eficiencia: number;
+}
+
+export interface TimeInfo {
+  hour: number;
+  minute: number;
+  period: "morning" | "day" | "evening" | "night";
+}
+
 export interface ClimaInfo {
-  tipo: ClimaType | "ninguno";
+  tipo: ClimaType;
   factor: number;
 }
 
-// Métricas globales (equivalente al InfoPanel + ChartModule)
 export interface Metrics {
-  total_arrivals: number;     // Llegadas
-  total_departures: number;   // Salidas
-  total_diverted: number;     // Desviados
-  emergencias: number;        // aviones emergencia
-  en_espera: number;          // prioridad 1
-  clima: ClimaInfo;           // clima_actual + factor_clima
-  time?: TimeInfo;            // información de hora (opcional para retrocompatibilidad)
+  total_arrivals: number;
+  total_departures: number;
+  total_diverted: number;
+  emergencias: number;
+  en_espera: number;
+  advanced: AdvancedMetrics;
+  tower: TowerStatistics;
+  clima: ClimaInfo;
+  time: TimeInfo;
 }
 
-// Pistas simples
 export interface RunwayDTO {
   id: number;
   busy: boolean;
@@ -110,19 +125,47 @@ export interface RunwayDTO {
   plane_id: number | null;
 }
 
-// Snapshot completo que devuelve /simulacion/reset, /simulacion/step, /simulacion/estado
 export interface SimulationSnapshot {
   step: number;
   config: SimulationConfig;
   planes: PlaneDTO[];
-  airlines: AirlineDTO[];
+  airlines: AirlineExtendedDTO[];
   metrics: Metrics;
   runways: RunwayDTO[];
 }
 
-// Para manejar errores que vengan del backend
-export interface ApiError {
-  detail?: string;
-  message?: string;
-  [key: string]: unknown;
+// 🆕 TIPOS PARA EXPORTACIÓN
+
+export interface ExportData {
+  steps: number[];
+  llegadas: number[];
+  salidas: number[];
+  emergencias: number[];
+  desviados: number[];
+  en_espera: number[];
+  aviones_en_holding: number[];
+  tiempo_holding_promedio: number[];
+  utilizacion_pistas: number[];
+  throughput: number[];
+  eficiencia_combustible: number[];
+  tasa_emergencias: number[];
+}
+
+export interface SimulationSummary {
+  scenario: string;
+  total_steps: number;
+  horas_simuladas: number;
+  kpis: {
+    total_flights: number;
+    success_rate: number;
+    diversion_rate: number;
+    throughput: number;
+    runway_utilization: number;
+    avg_holding_time: number;
+  };
+  best_airline: {
+    name: string;
+    score: number;
+  };
+  tower_performance: TowerStatistics;
 }

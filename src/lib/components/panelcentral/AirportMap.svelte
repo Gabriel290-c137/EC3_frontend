@@ -1,20 +1,22 @@
 <!-- src/lib/components/panelcentral/AirportMap.svelte -->
 <script lang="ts">
-  import type { PlaneDTO } from "$lib/types/api";
+  import type { PlaneDTO, ClimaType } from "$lib/types/api";
+  import WeatherEffects from "$lib/components/panelcentral/WeatherEffects.svelte";
 
   export let planes: PlaneDTO[] = [];
+  export let clima: ClimaType | "ninguno" = "ninguno";
 
   // Tamaño del grid (coincide con CanvasGrid(20, 20))
   const GRID_SIZE = 20;
   const MAX_INDEX = GRID_SIZE - 1;
 
   // Paleta (basada en lógica de planeColor + tu Figma)
-  const COLOR_GOAROUND = "#C77DFF";   // GO-AROUND
+  const COLOR_GOAROUND = "#C77DFF"; // GO-AROUND
   const COLOR_EMERGENCIA = "#FF5252"; // Emergencia
-  const COLOR_HOLDING = "#FFC34D";    // Holding / espera
-  const COLOR_DEPARTING = "#FFFFFF";  // Departing (blanco, como en CanvasGrid)
-  const COLOR_DESVIADO = "#A0A0A0";   // Desviado
-  const COLOR_NORMAL = "#18D1FF";     // Normal (fallback si no hay color de aerolínea)
+  const COLOR_HOLDING = "#FFC34D"; // Holding / espera
+  const COLOR_DEPARTING = "#FFFFFF"; // Departing (blanco, como en CanvasGrid)
+  const COLOR_DESVIADO = "#A0A0A0"; // Desviado
+  const COLOR_NORMAL = "#18D1FF"; // Normal (fallback si no hay color de aerolínea)
 
   /**
    * MISMA LÓGICA QUE planeColor(p) DEL SCRIPT:
@@ -64,12 +66,22 @@
 </script>
 
 <!-- CONTENEDOR RADAR -->
-<div class="relative bg-[#0B1E33] rounded-2xl overflow-hidden w-[500px] h-[500px]">
+<div
+  class="relative bg-[#0B1E33] rounded-2xl overflow-hidden w-[500px] h-[500px]"
+>
+  <!-- EFECTOS DE CLIMA (DENTRO DEL GRID) -->
+  <WeatherEffects {clima} />
+
   <!-- RADAR GRID -->
   <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none">
     <defs>
       <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
-        <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#26C6DA" stroke-width="0.5" />
+        <path
+          d="M 50 0 L 0 0 0 50"
+          fill="none"
+          stroke="#26C6DA"
+          stroke-width="0.5"
+        />
       </pattern>
       <radialGradient id="radarGradient">
         <stop offset="0%" stop-color="#26C6DA" stop-opacity="0.2" />
@@ -80,17 +92,22 @@
   </svg>
 
   <!-- RADAR SWEEP -->
-  <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+  <div
+    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+  >
     <div class="relative w-[90%] h-[90%]">
       {#each [0.3, 0.6, 1] as scale}
         <div
           class="absolute inset-0 border-2 border-[#26C6DA]/20 rounded-full"
           style={`transform: scale(${scale});`}
-        />
+        ></div>
       {/each}
 
       <!-- Sweep -->
-      <div class="absolute inset-0 animate-spin" style="animation-duration: 4s;">
+      <div
+        class="absolute inset-0 animate-spin"
+        style="animation-duration: 4s;"
+      >
         <div
           class="absolute top-1/2 left-1/2 w-1/2 h-1"
           style="
@@ -105,10 +122,16 @@
   <!-- AIRPORT CENTER (pistas + hub) -->
   <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
     <div class="relative">
-      <div class="w-40 h-1 bg-gray-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-      <div class="w-1 h-40 bg-gray-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
+      <div
+        class="w-40 h-1 bg-gray-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+      ></div>
+      <div
+        class="w-1 h-40 bg-gray-600 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
+      ></div>
 
-      <div class="w-10 h-10 bg-[#26C6DA] rounded-full flex items-center justify-center shadow-xl z-10">
+      <div
+        class="w-10 h-10 bg-[#26C6DA] rounded-full flex items-center justify-center shadow-xl z-10"
+      >
         ✈️
       </div>
     </div>
@@ -127,8 +150,12 @@
       >
         <!-- EMERGENCY RING -->
         {#if p.emergencia}
-          <div class="absolute inset-0 w-8 h-8 -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2">
-            <div class="absolute inset-0 border-2 border-red-500 rounded-full animate-ping"></div>
+          <div
+            class="absolute inset-0 w-8 h-8 -translate-x-1/2 -translate-y-1/2 left-1/2 top-1/2"
+          >
+            <div
+              class="absolute inset-0 border-2 border-red-500 rounded-full animate-ping"
+            ></div>
           </div>
         {/if}
 

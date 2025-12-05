@@ -16,8 +16,12 @@
   import Topbar from "$lib/components/layout/Topbar.svelte";
   import Metrics from "$lib/components/panelcentral/Metrics.svelte";
   import TimeDisplay from "$lib/components/panelcentral/TimeDisplay.svelte";
-  import WeatherEffects from "$lib/components/panelcentral/WeatherEffects.svelte";
   import FlightTable from "$lib/components/panelcentral/FlightTable.svelte";
+
+  import AirlineComparison from "$lib/components/panelcentral/AirlineComparison.svelte";
+  import AdvancedMetrics from "$lib/components/panelcentral/AdvancedMetrics.svelte";
+  import RunwayStatus from "$lib/components/panelcentral/RunwayStatus.svelte";
+  import ExportButton from "$lib/components/panelcentral/ExportButton.svelte";
 
   // ====================================================
   //  ESTADO BÁSICO
@@ -254,9 +258,6 @@
   class="min-h-screen overflow-x-hidden transition-colors duration-1000"
   style="background-color: {bgColor};"
 >
-  <!-- Weather effects overlay -->
-  <WeatherEffects clima={climaTipo} />
-
   <!-- TOPBAR FIJO -->
   <Topbar />
 
@@ -270,8 +271,11 @@
           ========================================= -->
       <aside class="w-full md:w-60 space-y-4 pt-2 shrink-0">
         <div>
-          <label class="block text-sm font-semibold mb-1">Escenario</label>
+          <label for="scenarioSelect" class="block text-sm font-semibold mb-1"
+            >Escenario</label
+          >
           <select
+            id="scenarioSelect"
             class="w-full rounded px-2 py-1 text-sm bg-[#020817] text-[#E4F4FF] border border-[#1F3A55] focus:outline-none focus:ring-1 focus:ring-[#26C6DA]"
             bind:value={config.scenario}
           >
@@ -295,10 +299,11 @@
         </div>
 
         <div>
-          <label class="block text-sm font-semibold mb-1">
+          <label for="climaSelect" class="block text-sm font-semibold mb-1">
             Clima fijo (override)
           </label>
           <select
+            id="climaSelect"
             class="w-full rounded px-2 py-1 text-sm bg-[#020817] text-[#E4F4FF] border border-[#1F3A55] focus:outline-none focus:ring-1 focus:ring-[#26C6DA]"
             bind:value={config.clima_manual}
           >
@@ -415,7 +420,8 @@
         {/if}
 
         <button
-          class="mt-2 w-full px-3 py-1 rounded bg-[#26C6DA] hover:bg-[#2FE4F7] text-white text-sm font-medium disabled:opacity-60 transition-colors"
+          class="mt-2 w-full px-3 py-1 rounded text-white text-sm font-medium"
+          style="background-color: {loading ? '#26C6DA99' : '#26C6DA'}; cursor: {loading ? 'not-allowed' : 'pointer'};"
           on:click={handleReset}
           disabled={loading}
         >
@@ -455,15 +461,17 @@
 
             <div class="flex flex-wrap gap-2 text-sm">
               <button
-                class="px-3 py-1 rounded bg-[#26C6DA] hover:bg-[#2FE4F7] text-white disabled:opacity-60 transition-colors"
+                class="px-3 py-1 rounded text-white"
+                style="background-color: {loading || autoRun ? '#26C6DA99' : '#26C6DA'}; cursor: {loading || autoRun ? 'not-allowed' : 'pointer'};"
                 on:click={startAutoRun}
-                disabled={loading}
+                disabled={loading || autoRun}
               >
                 Start
               </button>
 
               <button
-                class="px-3 py-1 rounded bg-[#0B1E33] hover:bg-[#12263F] text-[#E4F4FF] disabled:opacity-60 transition-colors"
+                class="px-3 py-1 rounded text-[#E4F4FF]"
+                style="background-color: {loading ? '#0B1E3399' : '#0B1E33'}; cursor: {loading ? 'not-allowed' : 'pointer'};"
                 on:click={handleStep}
                 disabled={loading}
               >
@@ -471,30 +479,28 @@
               </button>
 
               <button
-                class="px-3 py-1 rounded bg-[#DC2626] hover:bg-[#B91C1C] text-white disabled:opacity-60 transition-colors"
+                class="px-3 py-1 rounded text-white"
+                style="background-color: {!autoRun ? '#DC262699' : '#DC2626'}; cursor: {!autoRun ? 'not-allowed' : 'pointer'};"
+                on:click={stopAutoRun}
+                disabled={!autoRun}
+              >
+                Stop
+              </button>
+
+              <button
+                class="px-3 py-1 rounded border text-[#E4F4FF]"
+                style="background-color: {loading ? '#0B1E3399' : '#0B1E33'}; border-color: #1F3A55; cursor: {loading ? 'not-allowed' : 'pointer'};"
                 on:click={handleReset}
                 disabled={loading}
               >
                 Reset
               </button>
-
-              <button
-                class="px-3 py-1 rounded border text-[#E4F4FF] disabled:opacity-60 transition-colors"
-                class:border-[#26C6DA]={autoRun}
-                class:bg-[#26C6DA]={autoRun}
-                class:text-white={autoRun}
-                class:border-[#1F3A55]={!autoRun}
-                on:click={toggleAutoRun}
-                disabled={loading}
-              >
-                {autoRun ? "Detener Auto-run" : "Auto-run"}
-              </button>
             </div>
           </div>
 
-          <!-- MAPA -->
+          <!-- MAPA CON CLIMA -->
           <div class="mt-2 w-full max-w-xl mx-auto md:mx-0">
-            <AirportMap planes={snapshot.planes as PlaneDTO[]} />
+            <AirportMap planes={snapshot.planes as PlaneDTO[]} clima={climaTipo} />
           </div>
 
           <!-- MONITORES ESTILO DASHBOARD -->
@@ -603,7 +609,7 @@
               <TimeDisplay time={snapshot.metrics.time} />
             </div>
           </div>
-
+          
           <!-- MÉTRICAS – componente Metrics.svelte -->
           <div class="mt-3 w-full">
             <Metrics
@@ -624,6 +630,38 @@
           <div class="mt-3 w-full">
             <FlightTable planes={snapshot.planes} />
           </div>
+
+          <!-- 🆕 SECCIÓN: BOTONES DE EXPORTACIÓN -->
+          <div class="mt-3 flex justify-end">
+            <ExportButton />
+          </div>
+
+          <!-- 🆕 SECCIÓN: KPIs AVANZADOS -->
+          {#if snapshot?.metrics?.advanced && snapshot?.metrics?.tower}
+            <div class="mt-4">
+              <AdvancedMetrics
+                advanced={snapshot.metrics.advanced}
+                tower={snapshot.metrics.tower}
+              />
+            </div>
+          {/if}
+
+          <!-- 🆕 SECCIÓN: ESTADO DE PISTAS Y RANKING DE AEROLÍNEAS -->
+          <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <!-- Estado de Pistas -->
+            {#if snapshot?.runways && snapshot?.metrics?.advanced}
+              <RunwayStatus
+                runways={snapshot.runways}
+                utilizationPercent={snapshot.metrics.advanced.runway_utilization}
+              />
+            {/if}
+
+            <!-- Ranking de Aerolíneas -->
+            {#if snapshot?.airlines && snapshot.airlines.length > 0}
+              <AirlineComparison airlines={snapshot.airlines} />
+            {/if}
+          </div>
+
         {/if}
       </div>
     </div>

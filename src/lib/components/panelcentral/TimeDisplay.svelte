@@ -1,3 +1,5 @@
+<!-- src/lib/components/panelcentral/TimeDisplay.svelte -->
+
 <script lang="ts">
     import type { TimeInfo } from "$lib/types/api";
 
